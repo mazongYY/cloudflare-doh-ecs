@@ -6,6 +6,8 @@ import { ensureRules, isDomesticDomain, updateRules } from "./rules";
 import { readConfig, type WorkerConfig } from "./config";
 import type { Env } from "./types";
 
+const DEFAULT_PATHS_JOINED = "/doh,/dns-query";
+
 const MAX_REQUEST_BYTES = 4096;
 const MAX_RESPONSE_BYTES = 65535;
 const UPSTREAM_TIMEOUT_MS = 3000;
@@ -104,7 +106,7 @@ function decodeBase64Url(value: string): Uint8Array | null {
 
 async function readDnsRequest(request: Request, config: WorkerConfig): Promise<Response | Uint8Array> {
   const url = new URL(request.url);
-  if (url.pathname !== config.path) return emptyResponse(404);
+  if (!config.paths.includes(url.pathname)) return emptyResponse(404);
 
   if (request.method === "GET") {
     const values = url.searchParams.getAll("dns");
@@ -241,8 +243,17 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     config = readConfig(env);
   } catch {
     const url = new URL(request.url);
-    const expectedPath = env.DOH_PATH ?? "/doh";
-    if (url.pathname !== expectedPath) return emptyResponse(404);
+    const expectedPaths =
+      env.DOH_PATH ?? DEFAULT_PATHS_JOINED;
+    if (
+      !expectedPaths
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+        .includes(url.pathname)
+    ) {
+      return emptyResponse(404);
+    }
     let query = new Uint8Array();
     if (request.method === "POST") {
       try {

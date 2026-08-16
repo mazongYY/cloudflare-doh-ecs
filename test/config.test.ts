@@ -6,7 +6,7 @@ describe("worker configuration", () => {
 
   it("uses safe defaults and accepts valid overrides", () => {
     expect(readConfig(base())).toMatchObject({
-      path: "/doh",
+      paths: ["/doh", "/dns-query"],
       domesticUrls: [
         "https://dns.alidns.com/dns-query",
         "https://doh.pub/dns-query"
@@ -24,7 +24,7 @@ describe("worker configuration", () => {
         GLOBAL_FALLBACK_DOH_URL: "https://backup.example/dns-query"
       })
     ).toMatchObject({
-      path: "/private-doh",
+      paths: ["/private-doh"],
       globalUrls: [
         "https://resolver.example/dns-query",
         "https://backup.example/dns-query"
@@ -35,6 +35,9 @@ describe("worker configuration", () => {
   it.each([
     { DOH_PATH: "dns-query" },
     { DOH_PATH: "//evil" },
+    { DOH_PATH: "/ok,/bad?x" },
+    { DOH_PATH: "/ok,//bad" },
+    { DOH_PATH: " , " },
     { GLOBAL_DOH_URL: "http://8.8.8.8/dns-query" },
     { GLOBAL_DOH_URL: "https://user:pass@example.com/dns-query" },
     { GLOBAL_DOH_URL: "https://127.0.0.1/dns-query" },

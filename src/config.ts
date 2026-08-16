@@ -5,28 +5,34 @@ const DEFAULT_DOMESTIC = "https://dns.alidns.com/dns-query";
 const DEFAULT_DOMESTIC_FALLBACK = "https://doh.pub/dns-query";
 const DEFAULT_GLOBAL = "https://dns.google/dns-query";
 const DEFAULT_GLOBAL_FALLBACK = "https://cloudflare-dns.com/dns-query";
-const DEFAULT_PATH = "/doh";
+const DEFAULT_PATHS = ["/doh", "/dns-query"];
 
 export interface WorkerConfig {
-  path: string;
+  paths: readonly string[];
   domesticUrls: readonly [string, string];
   globalUrls: readonly [string, string];
 }
 
-
-function validatePath(value: string | undefined): string {
-  const path = value ?? DEFAULT_PATH;
-  if (
-    !path.startsWith("/") ||
-    path.startsWith("//") ||
-    path.includes("?") ||
-    path.includes("#") ||
-    path.includes("\\") ||
-    path.length > 256
-  ) {
-    throw new Error("invalid_doh_path");
+function validatePaths(value: string | undefined): readonly string[] {
+  const raw = value ?? DEFAULT_PATHS.join(",");
+  const candidates = raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  if (candidates.length === 0) throw new Error("invalid_doh_path");
+  for (const path of candidates) {
+    if (
+      !path.startsWith("/") ||
+      path.startsWith("//") ||
+      path.includes("?") ||
+      path.includes("#") ||
+      path.includes("\\") ||
+      path.length > 256
+    ) {
+      throw new Error("invalid_doh_path");
+    }
   }
-  return path;
+  return [...new Set(candidates)];
 }
 
 function validateUpstream(value: string | undefined, fallback: string): string {
@@ -59,7 +65,7 @@ function validateUpstream(value: string | undefined, fallback: string): string {
 
 export function readConfig(env: Env): WorkerConfig {
   return {
-    path: validatePath(env.DOH_PATH),
+    paths: validatePaths(env.DOH_PATH),
     domesticUrls: [
       validateUpstream(env.DOMESTIC_DOH_URL, DEFAULT_DOMESTIC),
       validateUpstream(env.DOMESTIC_FALLBACK_DOH_URL, DEFAULT_DOMESTIC_FALLBACK)
